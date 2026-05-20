@@ -101,7 +101,13 @@ def _fetch(url: str, timeout: int = 30):
 
 def register_custom(app):
     # 用本地自定义模板覆盖上游 / 路由
-    app.view_functions['index'] = lambda: render_template('index.html')
+    def _index():
+        resp = app.make_response(render_template('index.html'))
+        resp.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        resp.headers['Pragma'] = 'no-cache'
+        resp.headers['Expires'] = '0'
+        return resp
+    app.view_functions['index'] = _index
 
     @app.route('/sw.js')
     def service_worker():

@@ -1,6 +1,5 @@
-const CACHE_NAME = 'media-parser-v1';
+const CACHE_NAME = 'media-parser-v3';
 const APP_SHELL = [
-  '/',
   '/static/images/logo.png',
   '/static/manifest.webmanifest'
 ];
@@ -16,9 +15,8 @@ self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys().then(keys =>
       Promise.all(keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k)))
-    )
+    ).then(() => self.clients.claim())
   );
-  self.clients.claim();
 });
 
 self.addEventListener('fetch', event => {
@@ -26,12 +24,11 @@ self.addEventListener('fetch', event => {
   if (req.method !== 'GET') return;
 
   const url = new URL(req.url);
+  // API 永远走网络，不经过 SW
   if (url.pathname.startsWith('/api/')) return;
-
-  if (req.mode === 'navigate') {
-    event.respondWith(
-      fetch(req).catch(() => caches.match('/'))
-    );
+  // 导航请求（HTML 文档）永远走网络，避免页面被旧缓存固化
+  if (req.mode === 'navigate' || req.destination === 'document') {
+    event.respondWith(fetch(req).catch(() => caches.match('/static/images/logo.png')));
     return;
   }
 
