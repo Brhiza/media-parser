@@ -89,8 +89,9 @@
             </div>
 
             <div id="resultState" class="hidden">
-                <div class="flex flex-col md:flex-row gap-6">
-                    <div class="w-full md:w-1/3 shrink-0">
+                <!-- 视频/单图模式：左右布局 -->
+                <div id="mediaLayout" class="flex flex-col md:flex-row gap-6">
+                    <div id="coverWrapper" class="w-full md:w-1/3 shrink-0">
                         <div id="coverBlock"
                             class="relative rounded-xl overflow-hidden shadow-sm aspect-[3/4] bg-slate-100 group">
                             <img id="resultCover" src="" class="w-full h-full object-cover">
@@ -102,16 +103,6 @@
                                 </a>
                             </div>
                         </div>
-
-                        <div id="resultAlbum"
-                            class="hidden relative rounded-xl overflow-hidden shadow-sm aspect-[3/4] bg-slate-100">
-                            <div
-                                class="absolute top-3 right-3 bg-black/50 text-white text-xs px-2 py-1 rounded-lg backdrop-blur-sm z-10 flex items-center space-x-1">
-                                <i class="fas fa-images"></i> <span id="albumCount">0</span>
-                            </div>
-                            <div class="flex overflow-x-auto h-full w-full snap-x snap-mandatory scroll-smooth custom-scrollbar"
-                                id="albumGrid"></div>
-                        </div>
                     </div>
 
                     <div class="flex-1 flex flex-col min-w-0">
@@ -122,6 +113,11 @@
                                 class="inline-flex items-center space-x-1 bg-green-50 text-green-600 px-2.5 py-0.5 rounded-full text-xs font-semibold border border-green-100">
                                 <i class="fas fa-check-circle"></i>
                                 <span>成功</span>
+                            </span>
+                            <span id="albumBadge"
+                                class="hidden items-center space-x-1 bg-indigo-50 text-indigo-600 px-2.5 py-0.5 rounded-full text-xs font-semibold border border-indigo-100">
+                                <i class="fas fa-images"></i>
+                                <span><span id="albumCount">0</span> 张</span>
                             </span>
                         </div>
 
@@ -146,18 +142,50 @@
                                 class="w-full h-10 rounded-lg bg-slate-50 outline-none"></audio>
                         </div>
 
-                        <div class="mt-auto grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <a id="resultVideoDl" href="" target="_blank"
-                                class="flex items-center justify-center space-x-2 px-4 py-2.5 bg-indigo-600 text-white rounded-lg font-medium text-sm hover:bg-indigo-700 transition-colors">
+                        <!-- 操作按钮区：视频模式显示视频/封面，图集模式显示"打包下载全部" -->
+                        <div id="actionVideo" class="hidden mt-auto grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <a id="resultVideoDl"
+                                class="flex items-center justify-center space-x-2 px-4 py-2.5 bg-indigo-600 text-white rounded-lg font-medium text-sm hover:bg-indigo-700 transition-colors cursor-pointer">
                                 <i class="fas fa-video"></i>
-                                <span>无水印视频</span>
+                                <span>下载无水印视频</span>
                             </a>
-                            <a id="resultCoverDl" href="" target="_blank"
-                                class="flex items-center justify-center space-x-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg font-medium text-sm hover:bg-slate-50 transition-colors">
+                            <a id="resultCoverDl"
+                                class="flex items-center justify-center space-x-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg font-medium text-sm hover:bg-slate-50 transition-colors cursor-pointer">
                                 <i class="fas fa-image"></i>
-                                <span>高清封面</span>
+                                <span>下载高清封面</span>
                             </a>
                         </div>
+
+                        <div id="actionAlbum" class="hidden mt-auto">
+                            <button id="downloadAllBtn" onclick="downloadAll()"
+                                class="w-full flex items-center justify-center space-x-2 px-4 py-2.5 bg-indigo-600 text-white rounded-lg font-medium text-sm hover:bg-indigo-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+                                <i class="fas fa-download"></i>
+                                <span id="downloadAllText">打包下载全部图片</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 图集网格区块（独立全宽，仅图集模式显示） -->
+                <div id="albumSection" class="hidden mt-8">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="text-sm font-semibold text-slate-700">
+                            <i class="fas fa-images mr-1.5 text-indigo-500"></i>图集
+                            <span class="text-xs text-slate-400 font-normal ml-1" id="albumPageInfo"></span>
+                        </h4>
+                    </div>
+                    <div id="albumGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3"></div>
+
+                    <div id="albumPager" class="hidden items-center justify-center gap-2 mt-5">
+                        <button onclick="changeAlbumPage(-1)" id="prevPageBtn"
+                            class="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <span class="text-xs text-slate-500" id="albumPagerLabel">1 / 1</span>
+                        <button onclick="changeAlbumPage(1)" id="nextPageBtn"
+                            class="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 rounded-lg text-sm hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -202,99 +230,7 @@
                 loadingState.classList.remove('flex');
 
                 if (response.ok && res.succ) {
-                    const platformEl = document.getElementById('resultPlatform');
-                    if (res.data.platform) {
-                        platformEl.innerText = res.data.platform;
-                        platformEl.classList.remove('hidden');
-                    } else {
-                        platformEl.classList.add('hidden');
-                    }
-
-                    const authorInfo = document.getElementById('authorInfo');
-                    if (res.data.author && res.data.author.nickname) {
-                        document.getElementById('authorName').innerText = res.data.author.nickname;
-                        const authorIdEl = document.getElementById('authorId');
-                        if (res.data.author.author_id) {
-                            authorIdEl.innerText = 'ID: ' + res.data.author.author_id;
-                            authorIdEl.classList.remove('hidden');
-                        } else {
-                            authorIdEl.classList.add('hidden');
-                        }
-                        document.getElementById('authorAvatar').src = res.data.author.avatar || '';
-                        authorInfo.classList.remove('hidden');
-                        authorInfo.classList.add('flex');
-                    } else {
-                        authorInfo.classList.add('hidden');
-                        authorInfo.classList.remove('flex');
-                    }
-
-                    document.getElementById('resultCover').src = res.data.cover_url || '';
-                    document.getElementById('resultTitle').innerText = res.data.title || '无标题';
-
-                    const videoDlBtn = document.getElementById('resultVideoDl');
-                    const videoPlayBtn = document.getElementById('resultVideoPlay');
-                    if (res.data.video_url) {
-                        videoDlBtn.href = res.data.video_url;
-                        videoPlayBtn.href = res.data.video_url;
-                        videoPlayBtn.parentElement.classList.remove('hidden');
-                        videoDlBtn.style.display = 'flex';
-                    } else {
-                        videoPlayBtn.parentElement.classList.add('hidden');
-                        videoDlBtn.style.display = 'none';
-                    }
-
-                    const audioContainer = document.getElementById('audioContainer');
-                    const resultAudio = document.getElementById('resultAudio');
-                    if (res.data.audio_url) {
-                        resultAudio.src = res.data.audio_url;
-                        audioContainer.classList.remove('hidden');
-                    } else {
-                        resultAudio.src = '';
-                        audioContainer.classList.add('hidden');
-                    }
-
-                    const albumContainer = document.getElementById('resultAlbum');
-                    const albumGrid = document.getElementById('albumGrid');
-                    const coverBlock = document.getElementById('coverBlock');
-                    albumGrid.innerHTML = '';
-                    if (res.data.image_list && res.data.image_list.length > 0) {
-                        document.getElementById('albumCount').innerText = res.data.image_list.length;
-                        res.data.image_list.forEach(item => {
-                            let imgUrl = item;
-                            let livePhotoUrl = null;
-                            if (typeof item === 'object' && item !== null) {
-                                imgUrl = item.url;
-                                livePhotoUrl = item.live_photo_url;
-                            }
-
-                            const imgContainer = document.createElement('div');
-                            imgContainer.className = 'w-full h-full shrink-0 flex-none snap-center relative';
-
-                            let innerHtml = `<a href="${imgUrl}" target="_blank" class="block w-full h-full relative group">
-                                <img src="${imgUrl}" class="w-full h-full object-cover">
-                                <div class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
-                                    <i class="fas fa-expand text-3xl"></i>
-                                </div>
-                            </a>`;
-
-                            if (livePhotoUrl) {
-                                innerHtml += `<a href="${livePhotoUrl}" target="_blank" class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-indigo-600/90 hover:bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold shadow flex items-center space-x-1 z-10 w-max">
-                                    <i class="fas fa-video"></i>
-                                    <span>实况</span>
-                                </a>`;
-                            }
-
-                            imgContainer.innerHTML = innerHtml;
-                            albumGrid.appendChild(imgContainer);
-                        });
-                        coverBlock.classList.add('hidden');
-                        albumContainer.classList.remove('hidden');
-                    } else {
-                        coverBlock.classList.remove('hidden');
-                        albumContainer.classList.add('hidden');
-                    }
-
-                    document.getElementById('resultCoverDl').href = res.data.cover_url || '';
+                    renderResult(res.data);
                     resultState.classList.remove('hidden');
                 } else {
                     document.getElementById('errorMsg').innerText = res.msg || res.retdesc || '解析失败，请检查链接';
@@ -311,6 +247,249 @@
                 parseBtn.disabled = false;
                 parseBtn.classList.remove('opacity-70');
             }
+        }
+
+        // === 渲染结果 ===
+        const ALBUM_PAGE_SIZE = 12;
+        let albumState = { items: [], page: 0, title: '' };
+
+        function renderResult(data) {
+            const platformEl = document.getElementById('resultPlatform');
+            if (data.platform) {
+                platformEl.innerText = data.platform;
+                platformEl.classList.remove('hidden');
+            } else {
+                platformEl.classList.add('hidden');
+            }
+
+            const authorInfo = document.getElementById('authorInfo');
+            if (data.author && data.author.nickname) {
+                document.getElementById('authorName').innerText = data.author.nickname;
+                const authorIdEl = document.getElementById('authorId');
+                if (data.author.author_id) {
+                    authorIdEl.innerText = 'ID: ' + data.author.author_id;
+                    authorIdEl.classList.remove('hidden');
+                } else {
+                    authorIdEl.classList.add('hidden');
+                }
+                document.getElementById('authorAvatar').src = data.author.avatar || '';
+                authorInfo.classList.remove('hidden');
+                authorInfo.classList.add('flex');
+            } else {
+                authorInfo.classList.add('hidden');
+                authorInfo.classList.remove('flex');
+            }
+
+            document.getElementById('resultTitle').innerText = data.title || '无标题';
+
+            const audioContainer = document.getElementById('audioContainer');
+            const resultAudio = document.getElementById('resultAudio');
+            if (data.audio_url) {
+                resultAudio.src = data.audio_url;
+                audioContainer.classList.remove('hidden');
+            } else {
+                resultAudio.src = '';
+                audioContainer.classList.add('hidden');
+            }
+
+            const hasAlbum = Array.isArray(data.image_list) && data.image_list.length > 0;
+            const coverWrapper = document.getElementById('coverWrapper');
+            const albumSection = document.getElementById('albumSection');
+            const albumBadge = document.getElementById('albumBadge');
+            const actionVideo = document.getElementById('actionVideo');
+            const actionAlbum = document.getElementById('actionAlbum');
+            const mediaLayout = document.getElementById('mediaLayout');
+
+            if (hasAlbum) {
+                // 图集模式
+                coverWrapper.classList.add('hidden');
+                mediaLayout.classList.remove('md:flex-row');
+                albumSection.classList.remove('hidden');
+                albumBadge.classList.remove('hidden');
+                albumBadge.classList.add('inline-flex');
+                document.getElementById('albumCount').innerText = data.image_list.length;
+                actionVideo.classList.add('hidden');
+                actionAlbum.classList.remove('hidden');
+
+                albumState = {
+                    items: data.image_list,
+                    page: 0,
+                    title: (data.title || 'album').slice(0, 30)
+                };
+                renderAlbumPage();
+            } else {
+                // 视频/单图模式
+                coverWrapper.classList.remove('hidden');
+                mediaLayout.classList.add('md:flex-row');
+                albumSection.classList.add('hidden');
+                albumBadge.classList.add('hidden');
+                albumBadge.classList.remove('inline-flex');
+                actionAlbum.classList.add('hidden');
+                actionVideo.classList.remove('hidden');
+
+                document.getElementById('resultCover').src = data.cover_url || '';
+
+                const videoPlayBtn = document.getElementById('resultVideoPlay');
+                const videoDlBtn = document.getElementById('resultVideoDl');
+                if (data.video_url) {
+                    videoPlayBtn.href = data.video_url;
+                    videoPlayBtn.parentElement.classList.remove('hidden');
+                    videoDlBtn.onclick = () => downloadViaProxy(data.video_url, suggestName(data.title, 'video', data.video_url));
+                    videoDlBtn.style.display = 'flex';
+                } else {
+                    videoPlayBtn.parentElement.classList.add('hidden');
+                    videoDlBtn.style.display = 'none';
+                }
+
+                const coverDlBtn = document.getElementById('resultCoverDl');
+                if (data.cover_url) {
+                    coverDlBtn.onclick = () => downloadViaProxy(data.cover_url, suggestName(data.title, 'cover', data.cover_url));
+                    coverDlBtn.style.display = 'flex';
+                } else {
+                    coverDlBtn.style.display = 'none';
+                }
+            }
+        }
+
+        function renderAlbumPage() {
+            const grid = document.getElementById('albumGrid');
+            grid.innerHTML = '';
+            const total = albumState.items.length;
+            const totalPages = Math.max(1, Math.ceil(total / ALBUM_PAGE_SIZE));
+            if (albumState.page >= totalPages) albumState.page = totalPages - 1;
+            if (albumState.page < 0) albumState.page = 0;
+
+            const start = albumState.page * ALBUM_PAGE_SIZE;
+            const end = Math.min(start + ALBUM_PAGE_SIZE, total);
+
+            for (let i = start; i < end; i++) {
+                const item = albumState.items[i];
+                let imgUrl = item;
+                let livePhotoUrl = null;
+                if (typeof item === 'object' && item !== null) {
+                    imgUrl = item.url;
+                    livePhotoUrl = item.live_photo_url;
+                }
+
+                const cell = document.createElement('div');
+                cell.className = 'relative rounded-lg overflow-hidden bg-slate-100 aspect-square group shadow-sm';
+
+                let html = `
+                    <a href="${imgUrl}" target="_blank" class="block w-full h-full">
+                        <img src="${imgUrl}" loading="lazy" class="w-full h-full object-cover">
+                    </a>
+                    <div class="absolute top-1.5 left-1.5 bg-black/55 text-white text-[10px] font-mono px-1.5 py-0.5 rounded backdrop-blur-sm">${i + 1}</div>
+                    <button type="button" onclick="downloadViaProxy('${imgUrl}', '${suggestName(albumState.title, 'img_' + (i + 1), imgUrl)}')"
+                        class="absolute bottom-1.5 right-1.5 w-8 h-8 bg-white/90 hover:bg-white text-indigo-600 rounded-lg flex items-center justify-center shadow opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100"
+                        title="下载这张图片">
+                        <i class="fas fa-download text-sm"></i>
+                    </button>`;
+
+                if (livePhotoUrl) {
+                    html += `
+                    <button type="button" onclick="downloadViaProxy('${livePhotoUrl}', '${suggestName(albumState.title, 'live_' + (i + 1), livePhotoUrl)}')"
+                        class="absolute bottom-1.5 left-1.5 px-2 py-1 bg-indigo-600/90 hover:bg-indigo-600 text-white rounded-md text-[10px] font-semibold shadow flex items-center gap-1"
+                        title="下载实况">
+                        <i class="fas fa-video"></i>
+                        <span>实况</span>
+                    </button>`;
+                }
+
+                cell.innerHTML = html;
+                grid.appendChild(cell);
+            }
+
+            // 分页器
+            const pager = document.getElementById('albumPager');
+            const pageInfo = document.getElementById('albumPageInfo');
+            const pageLabel = document.getElementById('albumPagerLabel');
+            const prevBtn = document.getElementById('prevPageBtn');
+            const nextBtn = document.getElementById('nextPageBtn');
+
+            pageInfo.innerText = `（${start + 1}–${end} / ${total}）`;
+            if (totalPages > 1) {
+                pager.classList.remove('hidden');
+                pager.classList.add('flex');
+                pageLabel.innerText = `${albumState.page + 1} / ${totalPages}`;
+                prevBtn.disabled = albumState.page === 0;
+                nextBtn.disabled = albumState.page === totalPages - 1;
+            } else {
+                pager.classList.add('hidden');
+                pager.classList.remove('flex');
+            }
+        }
+
+        function changeAlbumPage(delta) {
+            albumState.page += delta;
+            renderAlbumPage();
+            document.getElementById('albumSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        async function downloadAll() {
+            const btn = document.getElementById('downloadAllBtn');
+            const label = document.getElementById('downloadAllText');
+            const originalText = label.innerText;
+
+            const urls = albumState.items.map(it => typeof it === 'object' ? it.url : it).filter(Boolean);
+            if (!urls.length) return;
+
+            btn.disabled = true;
+            label.innerText = `打包中（${urls.length} 张）...`;
+            try {
+                const resp = await fetch('/api/download_zip', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ urls, name: albumState.title || 'album' })
+                });
+                if (!resp.ok) throw new Error('打包失败');
+                const blob = await resp.blob();
+                triggerBlobDownload(blob, (albumState.title || 'album') + '.zip');
+            } catch (e) {
+                alert('打包下载失败：' + e.message);
+            } finally {
+                btn.disabled = false;
+                label.innerText = originalText;
+            }
+        }
+
+        function downloadViaProxy(url, filename) {
+            const proxied = '/api/download?url=' + encodeURIComponent(url) +
+                (filename ? '&name=' + encodeURIComponent(filename) : '');
+            const a = document.createElement('a');
+            a.href = proxied;
+            a.download = filename || '';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        }
+
+        function triggerBlobDownload(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 5000);
+        }
+
+        function suggestName(title, kind, url) {
+            const safeTitle = (title || '').replace(/[\\/:*?"<>|\s]+/g, '_').slice(0, 30) || 'media';
+            let ext = '';
+            try {
+                const path = new URL(url).pathname;
+                const dot = path.lastIndexOf('.');
+                if (dot > 0 && dot > path.lastIndexOf('/')) {
+                    ext = path.slice(dot).toLowerCase();
+                    if (ext.length > 6) ext = '';
+                }
+            } catch (e) {}
+            if (!ext) {
+                if (kind.startsWith('video') || kind.startsWith('live')) ext = '.mp4';
+                else ext = '.jpg';
+            }
+            return `${safeTitle}_${kind}${ext}`;
         }
 
         document.getElementById('parseUrl').addEventListener('keydown', e => {
