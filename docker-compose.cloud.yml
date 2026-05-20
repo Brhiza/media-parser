@@ -1,0 +1,17 @@
+# 使用 GHCR 上预构建的镜像，无需本地编译
+# 使用：docker-compose -f docker-compose.cloud.yml up -d
+# 升级：docker-compose -f docker-compose.cloud.yml pull && docker-compose -f docker-compose.cloud.yml up -d
+
+services:
+  web:
+    image: ghcr.io/brhiza/media-parser:latest
+    container_name: media-parser-backend
+    restart: always
+    ports:
+      - "8051:8051"
+    volumes:
+      - ./static/videos:/app/static/videos
+      - ./logs:/app/logs
+    environment:
+      - TZ=Asia/Shanghai
+    pull_policy: always
