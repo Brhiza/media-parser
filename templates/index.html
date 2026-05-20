@@ -371,31 +371,55 @@
                     livePhotoUrl = item.live_photo_url;
                 }
 
+                const idx = i + 1;
                 const cell = document.createElement('div');
                 cell.className = 'relative rounded-lg overflow-hidden bg-slate-100 aspect-square group shadow-sm';
 
-                let html = `
-                    <a href="${imgUrl}" target="_blank" class="block w-full h-full">
-                        <img src="${imgUrl}" loading="lazy" class="w-full h-full object-cover">
-                    </a>
-                    <div class="absolute top-1.5 left-1.5 bg-black/55 text-white text-[10px] font-mono px-1.5 py-0.5 rounded backdrop-blur-sm">${i + 1}</div>
-                    <button type="button" onclick="downloadViaProxy('${imgUrl}', '${suggestName(albumState.title, 'img_' + (i + 1), imgUrl)}')"
-                        class="absolute bottom-1.5 right-1.5 w-8 h-8 bg-white/90 hover:bg-white text-indigo-600 rounded-lg flex items-center justify-center shadow opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100"
-                        title="下载这张图片">
-                        <i class="fas fa-download text-sm"></i>
-                    </button>`;
+                const link = document.createElement('a');
+                link.href = imgUrl;
+                link.target = '_blank';
+                link.rel = 'noopener';
+                link.className = 'block w-full h-full';
+                const img = document.createElement('img');
+                img.src = imgUrl;
+                img.loading = 'lazy';
+                img.className = 'w-full h-full object-cover';
+                link.appendChild(img);
+                cell.appendChild(link);
+
+                const badge = document.createElement('div');
+                badge.className = 'absolute top-1.5 left-1.5 bg-black/55 text-white text-[10px] font-mono px-1.5 py-0.5 rounded backdrop-blur-sm';
+                badge.innerText = String(idx);
+                cell.appendChild(badge);
+
+                const dlBtn = document.createElement('button');
+                dlBtn.type = 'button';
+                dlBtn.className = 'absolute bottom-1.5 right-1.5 w-8 h-8 bg-white/90 hover:bg-white text-indigo-600 rounded-lg flex items-center justify-center shadow opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100';
+                dlBtn.title = '下载这张图片';
+                dlBtn.innerHTML = '<i class="fas fa-download text-sm"></i>';
+                dlBtn.addEventListener('click', () => {
+                    downloadViaProxy(imgUrl, suggestName(albumState.title, 'img_' + idx, imgUrl));
+                });
+                cell.appendChild(dlBtn);
 
                 if (livePhotoUrl) {
-                    html += `
-                    <button type="button" onclick="downloadViaProxy('${livePhotoUrl}', '${suggestName(albumState.title, 'live_' + (i + 1), livePhotoUrl)}')"
-                        class="absolute bottom-1.5 left-1.5 px-2 py-1 bg-indigo-600/90 hover:bg-indigo-600 text-white rounded-md text-[10px] font-semibold shadow flex items-center gap-1"
-                        title="下载实况">
-                        <i class="fas fa-video"></i>
-                        <span>实况</span>
-                    </button>`;
+                    // 标记角标
+                    const liveBadge = document.createElement('div');
+                    liveBadge.className = 'absolute top-1.5 right-1.5 bg-indigo-600/90 text-white text-[10px] font-bold px-1.5 py-0.5 rounded backdrop-blur-sm flex items-center gap-0.5';
+                    liveBadge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span><span>LIVE</span>';
+                    cell.appendChild(liveBadge);
+
+                    const liveBtn = document.createElement('button');
+                    liveBtn.type = 'button';
+                    liveBtn.className = 'absolute bottom-1.5 left-1.5 px-2 py-1 bg-indigo-600/90 hover:bg-indigo-600 text-white rounded-md text-[10px] font-semibold shadow flex items-center gap-1';
+                    liveBtn.title = '下载实况视频';
+                    liveBtn.innerHTML = '<i class="fas fa-video"></i><span>实况</span>';
+                    liveBtn.addEventListener('click', () => {
+                        downloadViaProxy(livePhotoUrl, suggestName(albumState.title, 'live_' + idx, livePhotoUrl));
+                    });
+                    cell.appendChild(liveBtn);
                 }
 
-                cell.innerHTML = html;
                 grid.appendChild(cell);
             }
 
@@ -430,11 +454,19 @@
             const label = document.getElementById('downloadAllText');
             const originalText = label.innerText;
 
-            const urls = albumState.items.map(it => typeof it === 'object' ? it.url : it).filter(Boolean);
+            const urls = [];
+            albumState.items.forEach(it => {
+                if (typeof it === 'object' && it !== null) {
+                    if (it.url) urls.push(it.url);
+                    if (it.live_photo_url) urls.push(it.live_photo_url);
+                } else if (typeof it === 'string') {
+                    urls.push(it);
+                }
+            });
             if (!urls.length) return;
 
             btn.disabled = true;
-            label.innerText = `打包中（${urls.length} 张）...`;
+            label.innerText = `打包中（${urls.length} 项）...`;
             try {
                 const resp = await fetch('/api/download_zip', {
                     method: 'POST',

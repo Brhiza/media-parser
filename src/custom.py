@@ -68,12 +68,33 @@ def _guess_filename(url: str, fallback: str = 'file') -> str:
 
 
 def _fetch(url: str, timeout: int = 30):
+    host = (urlparse(url).hostname or '').lower()
+    # 部分平台的视频/图片要求 Referer 指向其主站
+    referer_map = {
+        'douyinvod.com': 'https://www.douyin.com/',
+        'douyinpic.com': 'https://www.douyin.com/',
+        'xhscdn.com': 'https://www.xiaohongshu.com/',
+        'sinaimg.cn': 'https://weibo.com/',
+        'weibocdn.com': 'https://weibo.com/',
+        'zhimg.com': 'https://www.zhihu.com/',
+        'hdslb.com': 'https://www.bilibili.com/',
+        'biliimg.com': 'https://www.bilibili.com/',
+        'byteimg.com': 'https://www.ixigua.com/',
+        'ytimg.com': 'https://www.youtube.com/',
+        'googlevideo.com': 'https://www.youtube.com/',
+    }
+    referer = f'{urlparse(url).scheme}://{host}/'
+    for key, value in referer_map.items():
+        if host == key or host.endswith('.' + key):
+            referer = value
+            break
     headers = {
         'User-Agent': (
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
             '(KHTML, like Gecko) Chrome/124.0 Safari/537.36'
         ),
-        'Referer': f'{urlparse(url).scheme}://{urlparse(url).hostname}/',
+        'Referer': referer,
+        'Accept': '*/*',
     }
     return requests.get(url, headers=headers, stream=True, timeout=timeout)
 
