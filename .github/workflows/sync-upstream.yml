@@ -1,0 +1,101 @@
+name: Sync from upstream
+
+on:
+  schedule:
+    # 每天 03:17 UTC = 北京时间 11:17（避开整点错峰）
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout fork (starter)
+        uses: actions/checkout@v4
+        with:
+          ref: starter
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # 注册 .gitattributes 引用的 ours merge driver
+          git config merge.ours.driver true
+
+      - name: Add upstream remote
+        run: |
+          git remote add upstream https://github.com/ucmao/media-parser.git || true
+          git fetch upstream starter
+
+      - name: Check for new upstream commits
+        id: check
+        run: |
+          COUNT=$(git rev-list --count HEAD..upstream/starter)
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "上游新增提交数：$COUNT"
+          if [ "$COUNT" -gt 0 ]; then
+            git log --oneline HEAD..upstream/starter
+          fi
+
+      - name: Merge upstream
+        if: steps.check.outputs.count != '0'
+        id: merge
+        run: |
+          set +e
+          git merge upstream/starter --no-edit
+          STATUS=$?
+          set -e
+          if [ $STATUS -ne 0 ]; then
+            echo "conflict=true" >> "$GITHUB_OUTPUT"
+            git merge --abort || true
+            exit 0
+          fi
+          echo "conflict=false" >> "$GITHUB_OUTPUT"
+
+      - name: Push merged commit
+        if: steps.check.outputs.count != '0' && steps.merge.outputs.conflict != 'true'
+        run: git push origin starter
+
+      - name: Open issue on conflict
+        if: steps.merge.outputs.conflict == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = `自动同步上游失败：存在合并冲突 (${new Date().toISOString().slice(0,10)})`;
+            const body = [
+              '自动同步任务在合并 `upstream/starter` 时遇到冲突，已中止并未推送任何改动。',
+              '',
+              '**手动解决步骤：**',
+              '```bash',
+              'git fetch upstream',
+              'git merge upstream/starter',
+              '# 解决冲突后',
+              'git add <冲突文件>',
+              'git commit',
+              'git push origin starter',
+              '```',
+              '',
+              `工作流运行记录：${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+            ].join('\n');
+            // 避免重复开 Issue
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'sync-conflict'
+            });
+            if (existing.data.length === 0) {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ['sync-conflict']
+              });
+            }
