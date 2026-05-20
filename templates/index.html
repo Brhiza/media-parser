@@ -373,8 +373,11 @@
 
                 const idx = i + 1;
                 const cell = document.createElement('div');
-                cell.className = 'relative rounded-lg overflow-hidden bg-slate-100 aspect-square group shadow-sm';
+                cell.className = 'relative rounded-lg overflow-hidden bg-slate-100 group shadow-sm flex flex-col';
 
+                // 图片区
+                const imgWrap = document.createElement('div');
+                imgWrap.className = 'relative aspect-square bg-slate-100';
                 const link = document.createElement('a');
                 link.href = imgUrl;
                 link.target = '_blank';
@@ -385,41 +388,46 @@
                 img.loading = 'lazy';
                 img.className = 'w-full h-full object-cover';
                 link.appendChild(img);
-                cell.appendChild(link);
+                imgWrap.appendChild(link);
 
                 const badge = document.createElement('div');
                 badge.className = 'absolute top-1.5 left-1.5 bg-black/55 text-white text-[10px] font-mono px-1.5 py-0.5 rounded backdrop-blur-sm';
                 badge.innerText = String(idx);
-                cell.appendChild(badge);
+                imgWrap.appendChild(badge);
+
+                if (livePhotoUrl) {
+                    const liveBadge = document.createElement('div');
+                    liveBadge.className = 'absolute top-1.5 right-1.5 bg-indigo-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow flex items-center gap-1';
+                    liveBadge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span><span>LIVE</span>';
+                    imgWrap.appendChild(liveBadge);
+                }
+                cell.appendChild(imgWrap);
+
+                // 下方按钮条：明确的文字标签，永远可见
+                const btnBar = document.createElement('div');
+                btnBar.className = 'flex' + (livePhotoUrl ? ' divide-x divide-slate-200' : '');
 
                 const dlBtn = document.createElement('button');
                 dlBtn.type = 'button';
-                dlBtn.className = 'absolute bottom-1.5 right-1.5 w-8 h-8 bg-white/90 hover:bg-white text-indigo-600 rounded-lg flex items-center justify-center shadow opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100';
-                dlBtn.title = '下载这张图片';
-                dlBtn.innerHTML = '<i class="fas fa-download text-sm"></i>';
+                dlBtn.className = 'flex-1 px-2 py-2 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium flex items-center justify-center gap-1.5 transition-colors';
+                dlBtn.innerHTML = '<i class="fas fa-image text-slate-400"></i><span>图片</span>';
                 dlBtn.addEventListener('click', () => {
                     downloadViaProxy(imgUrl, suggestName(albumState.title, 'img_' + idx, imgUrl));
                 });
-                cell.appendChild(dlBtn);
+                btnBar.appendChild(dlBtn);
 
                 if (livePhotoUrl) {
-                    // 标记角标
-                    const liveBadge = document.createElement('div');
-                    liveBadge.className = 'absolute top-1.5 right-1.5 bg-indigo-600/90 text-white text-[10px] font-bold px-1.5 py-0.5 rounded backdrop-blur-sm flex items-center gap-0.5';
-                    liveBadge.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span><span>LIVE</span>';
-                    cell.appendChild(liveBadge);
-
                     const liveBtn = document.createElement('button');
                     liveBtn.type = 'button';
-                    liveBtn.className = 'absolute bottom-1.5 left-1.5 px-2 py-1 bg-indigo-600/90 hover:bg-indigo-600 text-white rounded-md text-[10px] font-semibold shadow flex items-center gap-1';
-                    liveBtn.title = '下载实况视频';
-                    liveBtn.innerHTML = '<i class="fas fa-video"></i><span>实况</span>';
+                    liveBtn.className = 'flex-1 px-2 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors';
+                    liveBtn.innerHTML = '<i class="fas fa-video"></i><span>实况视频</span>';
                     liveBtn.addEventListener('click', () => {
                         downloadViaProxy(livePhotoUrl, suggestName(albumState.title, 'live_' + idx, livePhotoUrl));
                     });
-                    cell.appendChild(liveBtn);
+                    btnBar.appendChild(liveBtn);
                 }
 
+                cell.appendChild(btnBar);
                 grid.appendChild(cell);
             }
 
