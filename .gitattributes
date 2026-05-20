@@ -1,0 +1,4 @@
+# 跟随上游同步时，对以下文件采用 "保留本地版本" 策略
+# 需先在仓库执行：git config merge.ours.driver true
+app.py merge=ours
+templates/landing.html merge=ours

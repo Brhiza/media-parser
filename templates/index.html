@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>短视频解析</title>
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="theme-color" content="#4f46e5">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="短视频解析">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/logo.png') }}">
+    <link rel="icon" href="{{ url_for('static', filename='images/logo.png') }}">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+
+<body class="bg-slate-50 min-h-screen">
+    <main class="max-w-3xl mx-auto px-6 py-16">
+        <header class="text-center mb-10">
+            <h1 class="text-3xl md:text-4xl font-bold text-slate-800 tracking-tight">短视频解析</h1>
+            <p class="text-slate-500 mt-3 text-sm">粘贴链接，一键提取无水印素材</p>
+        </header>
+
+        <section class="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-slate-100">
+            <div class="flex flex-col sm:flex-row gap-3 mb-6">
+                <div class="relative flex-1">
+                    <input type="text" id="parseUrl" placeholder="粘贴视频链接，例如 https://v.douyin.com/..."
+                        class="w-full pl-5 pr-12 py-3 rounded-xl bg-slate-50 border border-slate-200 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 outline-none transition-all text-slate-700">
+                    <button id="pasteBtn" type="button" onclick="handlePaste()" title="从剪贴板粘贴"
+                        class="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
+                        <i class="fas fa-paste"></i>
+                    </button>
+                </div>
+                <button id="parseBtn" onclick="handleParse()"
+                    class="px-8 py-3 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 transition-colors flex items-center justify-center space-x-2 whitespace-nowrap">
+                    <i class="fas fa-magic"></i>
+                    <span>解析</span>
+                </button>
+            </div>
+
+            <div id="clipboardHint"
+                class="hidden items-center justify-between gap-3 mb-4 px-4 py-2.5 bg-indigo-50 border border-indigo-100 rounded-xl text-sm">
+                <div class="flex items-center gap-2 text-indigo-700 min-w-0">
+                    <i class="fas fa-clipboard shrink-0"></i>
+                    <span class="truncate">检测到剪贴板链接：<span id="clipboardPreview" class="font-mono text-xs"></span></span>
+                </div>
+                <div class="flex items-center gap-2 shrink-0">
+                    <button onclick="acceptClipboard()" class="px-3 py-1 bg-indigo-600 text-white rounded-md text-xs font-semibold hover:bg-indigo-700">填入</button>
+                    <button onclick="dismissClipboard()" class="px-3 py-1 bg-white border border-slate-200 text-slate-500 rounded-md text-xs hover:bg-slate-50">忽略</button>
+                </div>
+            </div>
+
+            <div id="loadingState" class="hidden flex-col items-center justify-center py-12 text-slate-400">
+                <i class="fas fa-circle-notch fa-spin text-3xl text-indigo-500 mb-3"></i>
+                <p class="text-sm">解析中...</p>
+            </div>
+
+            <div id="errorState"
+                class="hidden flex-col items-center justify-center py-8 bg-red-50 rounded-xl border border-red-100 text-red-500">
+                <i class="fas fa-exclamation-circle text-3xl mb-2"></i>
+                <p id="errorMsg" class="text-sm">解析失败</p>
+            </div>
+
+            <div id="resultState" class="hidden">
+                <div class="flex flex-col md:flex-row gap-6">
+                    <div class="w-full md:w-1/3 shrink-0">
+                        <div id="coverBlock"
+                            class="relative rounded-xl overflow-hidden shadow-sm aspect-[3/4] bg-slate-100 group">
+                            <img id="resultCover" src="" class="w-full h-full object-cover">
+                            <div
+                                class="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <a id="resultVideoPlay" href="" target="_blank"
+                                    class="w-12 h-12 bg-white/90 rounded-full flex items-center justify-center text-indigo-600 hover:scale-110 transition-transform shadow">
+                                    <i class="fas fa-play ml-1"></i>
+                                </a>
+                            </div>
+                        </div>
+
+                        <div id="resultAlbum"
+                            class="hidden relative rounded-xl overflow-hidden shadow-sm aspect-[3/4] bg-slate-100">
+                            <div
+                                class="absolute top-3 right-3 bg-black/50 text-white text-xs px-2 py-1 rounded-lg backdrop-blur-sm z-10 flex items-center space-x-1">
+                                <i class="fas fa-images"></i> <span id="albumCount">0</span>
+                            </div>
+                            <div class="flex overflow-x-auto h-full w-full snap-x snap-mandatory scroll-smooth custom-scrollbar"
+                                id="albumGrid"></div>
+                        </div>
+                    </div>
+
+                    <div class="flex-1 flex flex-col min-w-0">
+                        <div class="flex flex-wrap items-center gap-2 mb-3">
+                            <span id="resultPlatform"
+                                class="hidden px-2.5 py-0.5 bg-indigo-50 text-indigo-600 rounded-full text-xs font-semibold border border-indigo-100"></span>
+                            <span
+                                class="inline-flex items-center space-x-1 bg-green-50 text-green-600 px-2.5 py-0.5 rounded-full text-xs font-semibold border border-green-100">
+                                <i class="fas fa-check-circle"></i>
+                                <span>成功</span>
+                            </span>
+                        </div>
+
+                        <div id="authorInfo"
+                            class="hidden items-center space-x-2 mb-3 bg-slate-50 w-max px-2.5 py-1.5 rounded-lg border border-slate-100">
+                            <img id="authorAvatar" src=""
+                                class="w-7 h-7 rounded-full object-cover border border-slate-200">
+                            <div class="flex flex-col">
+                                <span id="authorName" class="text-xs font-semibold text-slate-700"></span>
+                                <span id="authorId" class="text-[10px] text-slate-400"></span>
+                            </div>
+                        </div>
+
+                        <h3 id="resultTitle"
+                            class="text-base font-semibold text-slate-800 mb-4 leading-relaxed break-words"></h3>
+
+                        <div id="audioContainer" class="hidden mb-4 w-full">
+                            <h4 class="text-xs font-semibold text-slate-500 mb-1.5">
+                                <i class="fas fa-music mr-1 text-indigo-500"></i>音频
+                            </h4>
+                            <audio id="resultAudio" controls
+                                class="w-full h-10 rounded-lg bg-slate-50 outline-none"></audio>
+                        </div>
+
+                        <div class="mt-auto grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <a id="resultVideoDl" href="" target="_blank"
+                                class="flex items-center justify-center space-x-2 px-4 py-2.5 bg-indigo-600 text-white rounded-lg font-medium text-sm hover:bg-indigo-700 transition-colors">
+                                <i class="fas fa-video"></i>
+                                <span>无水印视频</span>
+                            </a>
+                            <a id="resultCoverDl" href="" target="_blank"
+                                class="flex items-center justify-center space-x-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-lg font-medium text-sm hover:bg-slate-50 transition-colors">
+                                <i class="fas fa-image"></i>
+                                <span>高清封面</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <p class="text-center text-xs text-slate-400 mt-8">
+            支持抖音 / 快手 / 小红书 / B站 / 微博 / 知乎 / TikTok / YouTube 等主流平台
+        </p>
+    </main>
+
+    <script>
+        async function handleParse() {
+            const urlInput = document.getElementById('parseUrl').value.trim();
+            const loadingState = document.getElementById('loadingState');
+            const resultState = document.getElementById('resultState');
+            const errorState = document.getElementById('errorState');
+            const parseBtn = document.getElementById('parseBtn');
+
+            if (!urlInput) {
+                alert('请输入视频链接');
+                return;
+            }
+
+            resultState.classList.add('hidden');
+            errorState.classList.add('hidden');
+            errorState.classList.remove('flex');
+            loadingState.classList.remove('hidden');
+            loadingState.classList.add('flex');
+            parseBtn.disabled = true;
+            parseBtn.classList.add('opacity-70');
+
+            try {
+                const response = await fetch('/api/parse', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: urlInput })
+                });
+
+                const res = await response.json();
+
+                loadingState.classList.add('hidden');
+                loadingState.classList.remove('flex');
+
+                if (response.ok && res.succ) {
+                    const platformEl = document.getElementById('resultPlatform');
+                    if (res.data.platform) {
+                        platformEl.innerText = res.data.platform;
+                        platformEl.classList.remove('hidden');
+                    } else {
+                        platformEl.classList.add('hidden');
+                    }
+
+                    const authorInfo = document.getElementById('authorInfo');
+                    if (res.data.author && res.data.author.nickname) {
+                        document.getElementById('authorName').innerText = res.data.author.nickname;
+                        const authorIdEl = document.getElementById('authorId');
+                        if (res.data.author.author_id) {
+                            authorIdEl.innerText = 'ID: ' + res.data.author.author_id;
+                            authorIdEl.classList.remove('hidden');
+                        } else {
+                            authorIdEl.classList.add('hidden');
+                        }
+                        document.getElementById('authorAvatar').src = res.data.author.avatar || '';
+                        authorInfo.classList.remove('hidden');
+                        authorInfo.classList.add('flex');
+                    } else {
+                        authorInfo.classList.add('hidden');
+                        authorInfo.classList.remove('flex');
+                    }
+
+                    document.getElementById('resultCover').src = res.data.cover_url || '';
+                    document.getElementById('resultTitle').innerText = res.data.title || '无标题';
+
+                    const videoDlBtn = document.getElementById('resultVideoDl');
+                    const videoPlayBtn = document.getElementById('resultVideoPlay');
+                    if (res.data.video_url) {
+                        videoDlBtn.href = res.data.video_url;
+                        videoPlayBtn.href = res.data.video_url;
+                        videoPlayBtn.parentElement.classList.remove('hidden');
+                        videoDlBtn.style.display = 'flex';
+                    } else {
+                        videoPlayBtn.parentElement.classList.add('hidden');
+                        videoDlBtn.style.display = 'none';
+                    }
+
+                    const audioContainer = document.getElementById('audioContainer');
+                    const resultAudio = document.getElementById('resultAudio');
+                    if (res.data.audio_url) {
+                        resultAudio.src = res.data.audio_url;
+                        audioContainer.classList.remove('hidden');
+                    } else {
+                        resultAudio.src = '';
+                        audioContainer.classList.add('hidden');
+                    }
+
+                    const albumContainer = document.getElementById('resultAlbum');
+                    const albumGrid = document.getElementById('albumGrid');
+                    const coverBlock = document.getElementById('coverBlock');
+                    albumGrid.innerHTML = '';
+                    if (res.data.image_list && res.data.image_list.length > 0) {
+                        document.getElementById('albumCount').innerText = res.data.image_list.length;
+                        res.data.image_list.forEach(item => {
+                            let imgUrl = item;
+                            let livePhotoUrl = null;
+                            if (typeof item === 'object' && item !== null) {
+                                imgUrl = item.url;
+                                livePhotoUrl = item.live_photo_url;
+                            }
+
+                            const imgContainer = document.createElement('div');
+                            imgContainer.className = 'w-full h-full shrink-0 flex-none snap-center relative';
+
+                            let innerHtml = `<a href="${imgUrl}" target="_blank" class="block w-full h-full relative group">
+                                <img src="${imgUrl}" class="w-full h-full object-cover">
+                                <div class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                                    <i class="fas fa-expand text-3xl"></i>
+                                </div>
+                            </a>`;
+
+                            if (livePhotoUrl) {
+                                innerHtml += `<a href="${livePhotoUrl}" target="_blank" class="absolute bottom-4 left-1/2 -translate-x-1/2 bg-indigo-600/90 hover:bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold shadow flex items-center space-x-1 z-10 w-max">
+                                    <i class="fas fa-video"></i>
+                                    <span>实况</span>
+                                </a>`;
+                            }
+
+                            imgContainer.innerHTML = innerHtml;
+                            albumGrid.appendChild(imgContainer);
+                        });
+                        coverBlock.classList.add('hidden');
+                        albumContainer.classList.remove('hidden');
+                    } else {
+                        coverBlock.classList.remove('hidden');
+                        albumContainer.classList.add('hidden');
+                    }
+
+                    document.getElementById('resultCoverDl').href = res.data.cover_url || '';
+                    resultState.classList.remove('hidden');
+                } else {
+                    document.getElementById('errorMsg').innerText = res.msg || res.retdesc || '解析失败，请检查链接';
+                    errorState.classList.remove('hidden');
+                    errorState.classList.add('flex');
+                }
+            } catch (err) {
+                loadingState.classList.add('hidden');
+                loadingState.classList.remove('flex');
+                document.getElementById('errorMsg').innerText = '网络错误，请稍后重试';
+                errorState.classList.remove('hidden');
+                errorState.classList.add('flex');
+            } finally {
+                parseBtn.disabled = false;
+                parseBtn.classList.remove('opacity-70');
+            }
+        }
+
+        document.getElementById('parseUrl').addEventListener('keydown', e => {
+            if (e.key === 'Enter') handleParse();
+        });
+
+        // === 平台域名白名单（含分享短链）===
+        // 与后端 configs/business_config.json::DOMAIN_TO_NAME 的根域对齐，并补充常见短链域名。
+        const SUPPORTED_DOMAINS = [
+            'douyin.com', 'iesdouyin.com',
+            'xiaohongshu.com', 'xhslink.com',
+            'kuaishou.com', 'chenzhongtech.com',
+            'bilibili.com', 'b23.tv',
+            'weibo.com', 'weibo.cn', 't.cn',
+            'zhihu.com',
+            'ixigua.com',
+            'youtube.com', 'youtu.be',
+            'tiktok.com',
+            'instagram.com',
+            'twitter.com', 'x.com',
+            'acfun.cn',
+            'haokan.baidu.com', 'haokan.hao123.com',
+            'weishi.qq.com',
+            'pearvideo.com',
+            'pipigx.com',
+            'doupai.cc',
+            'huya.com',
+            'meipai.com',
+            'pipix.com',
+            'quanmin.baidu.com', 'quanmin.hao224.com',
+            'kg.qq.com', 'kg2.qq.com',
+            '6.cn',
+            'xinpianchang.com',
+            'izuiyou.com', 'xiaochuankeji.cn'
+        ];
+
+        function extractSupportedUrl(text) {
+            if (!text) return null;
+            const match = text.match(/https?:\/\/[^\s'"<>]+/i);
+            if (!match) return null;
+            const candidate = match[0];
+            try {
+                const host = new URL(candidate).hostname.toLowerCase();
+                const ok = SUPPORTED_DOMAINS.some(d => host === d || host.endsWith('.' + d));
+                return ok ? candidate : null;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // === 粘贴按钮 ===
+        async function handlePaste() {
+            try {
+                const text = await navigator.clipboard.readText();
+                if (!text) return;
+                document.getElementById('parseUrl').value = text.trim();
+                const url = extractSupportedUrl(text);
+                if (url) handleParse();
+            } catch (e) {
+                alert('无法读取剪贴板，请手动粘贴（Ctrl+V）');
+            }
+        }
+
+        // === 聚焦时自动检测剪贴板里的支持链接 ===
+        let lastSeenClipboard = '';
+
+        async function tryDetectClipboard() {
+            if (!navigator.clipboard || !navigator.clipboard.readText) return;
+            if (document.hidden) return;
+            const input = document.getElementById('parseUrl');
+            if (input.value.trim()) return;
+
+            try {
+                const text = await navigator.clipboard.readText();
+                if (!text || text === lastSeenClipboard) return;
+                lastSeenClipboard = text;
+                const url = extractSupportedUrl(text);
+                if (!url) return;
+                showClipboardHint(url);
+            } catch (e) {
+                // 用户未授权或浏览器不支持，静默忽略
+            }
+        }
+
+        function showClipboardHint(url) {
+            const hint = document.getElementById('clipboardHint');
+            const preview = document.getElementById('clipboardPreview');
+            preview.innerText = url.length > 60 ? url.slice(0, 57) + '...' : url;
+            hint.dataset.url = url;
+            hint.classList.remove('hidden');
+            hint.classList.add('flex');
+        }
+
+        function acceptClipboard() {
+            const hint = document.getElementById('clipboardHint');
+            const url = hint.dataset.url;
+            if (url) {
+                document.getElementById('parseUrl').value = url;
+                dismissClipboard();
+                handleParse();
+            }
+        }
+
+        function dismissClipboard() {
+            const hint = document.getElementById('clipboardHint');
+            hint.classList.add('hidden');
+            hint.classList.remove('flex');
+        }
+
+        window.addEventListener('focus', tryDetectClipboard);
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) tryDetectClipboard();
+        });
+        // 页面加载后也尝试一次（多数浏览器需用户先交互，会静默失败）
+        setTimeout(tryDetectClipboard, 300);
+
+        // === 注册 Service Worker（PWA）===
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').catch(() => {});
+            });
+        }
+    </script>
+</body>
+
+</html>

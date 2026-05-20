@@ -14,5 +14,9 @@ def index():
     """前台展示页面（Landing Page）"""
     return render_template('landing.html')
 
+# === fork 自定义扩展：覆盖首页模板 + PWA 路由（位于 src/custom.py，独立维护） ===
+from src.custom import register_custom
+register_custom(app)
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8051)
