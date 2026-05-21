@@ -6,7 +6,7 @@ app.py 中仅需在末尾追加一行 `from src.custom import register_custom; r
 import io
 import re
 import zipfile
-from urllib.parse import urlparse, unquote
+from urllib.parse import urlparse, unquote, quote
 
 import requests
 from flask import (
@@ -65,6 +65,17 @@ def _guess_filename(url: str, fallback: str = 'file') -> str:
         return name[:120]
     except Exception:
         return fallback
+
+
+def _content_disposition(filename: str) -> str:
+    """构造合法的 Content-Disposition 头（RFC 5987）。
+
+    HTTP header 必须是 ASCII：filename* 用 UTF-8 百分号编码承载真实文件名；
+    filename 提供去掉非 ASCII 字符的回退值给老客户端。
+    """
+    encoded = quote(filename, safe='')
+    ascii_fallback = re.sub(r'[^A-Za-z0-9._-]+', '_', filename).strip('._') or 'file'
+    return f'attachment; filename="{ascii_fallback}"; filename*=UTF-8\'\'{encoded}'
 
 
 def _fetch(url: str, timeout: int = 30):
@@ -157,9 +168,7 @@ def register_custom(app):
                 upstream.close()
 
         resp = Response(stream_with_context(gen()), mimetype=content_type)
-        resp.headers['Content-Disposition'] = (
-            f"attachment; filename*=UTF-8''{filename}"
-        )
+        resp.headers['Content-Disposition'] = _content_disposition(filename)
         return resp
 
     @app.route('/api/download_zip', methods=['POST'])
@@ -212,7 +221,5 @@ def register_custom(app):
 
         buf.seek(0)
         resp = Response(buf.getvalue(), mimetype='application/zip')
-        resp.headers['Content-Disposition'] = (
-            f"attachment; filename*=UTF-8''{zip_name}.zip"
-        )
+        resp.headers['Content-Disposition'] = _content_disposition(zip_name + '.zip')
         return resp
