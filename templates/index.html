@@ -536,6 +536,19 @@
             if (e.key === 'Enter') handleParse();
         });
 
+        // 直接在输入框里粘贴（Ctrl+V / 右键粘贴）：检测到支持的链接就立即解析
+        document.getElementById('parseUrl').addEventListener('paste', e => {
+            const pasted = (e.clipboardData || window.clipboardData)?.getData('text') || '';
+            if (!pasted) return;
+            const url = extractSupportedUrl(pasted);
+            if (!url) return;
+            // 让浏览器先完成默认粘贴动作，再触发解析
+            setTimeout(() => {
+                document.getElementById('parseUrl').value = pasted.trim();
+                handleParse();
+            }, 0);
+        });
+
         // === 平台域名白名单（含分享短链）===
         // 与后端 configs/business_config.json::DOMAIN_TO_NAME 的根域对齐，并补充常见短链域名。
         const SUPPORTED_DOMAINS = [
